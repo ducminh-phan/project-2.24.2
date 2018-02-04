@@ -1,4 +1,5 @@
 import networkx as nx
+from networkx.utils import pairwise
 
 from utils import prune_tree, graph_weight
 
@@ -9,7 +10,7 @@ def try_insert_edge(s, e, w_e):
     We replace the longest edge connecting u and v in S by e if its weight greater than w_e.
     """
     path = nx.dijkstra_path(s, *e)  # the path connecting v and w in S
-    path_edges = zip(path[:-1], path[1:])  # the edges on the path
+    path_edges = pairwise(path)  # the edges on the path
     longest_edge = max(path_edges, key=lambda x: s.edges[x]['weight'])
 
     if s.edges[longest_edge]['weight'] > w_e:
