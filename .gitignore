@@ -1,0 +1,8 @@
+# PyCharm stuffs
+.idea
+
+.cache
+__pycache__
+
+*.pdf
+*.zip
