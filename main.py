@@ -66,7 +66,7 @@ def timeout(t=None):
     return _timeout
 
 
-@timeout(t=3600)
+@timeout()
 @log_error
 def solve(method_id, instance_id, max_runtime=None):
     start_all = time.time()
@@ -120,6 +120,9 @@ def solve(method_id, instance_id, max_runtime=None):
 def main():
     results = {}
 
+    with open('small_instances.json') as f:
+        small_instances = json.load(f)
+
     def collect_result(result):
         results.update(result)
         with open('results/{}.json'.format(method_name), 'w') as f:
@@ -131,9 +134,8 @@ def main():
         pool = mp.Pool()
         method_name = METHODS[method_id].__name__
 
-        for instance_id in range(1, 200, 2):
-            pool.apply_async(solve,
-                             args=(method_id, instance_id), kwds={'max_runtime': 3600},
+        for instance_id in small_instances:
+            pool.apply_async(solve, args=(method_id, instance_id),
                              callback=collect_result)
 
         pool.close()
