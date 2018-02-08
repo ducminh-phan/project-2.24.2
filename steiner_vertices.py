@@ -35,21 +35,23 @@ def steiner_vertices_insertion(g, s, terminals, early_stop=True):
     if not available_nodes:
         return s
 
+    original_s = s.copy()
     s_weight = graph_weight(s)
 
     for v in available_nodes:
-        connecting_edges = ((v, w) for w in g[v] & s.nodes)  # edges connecting v and S
+        # Find the edges connecting v and S
+        connecting_edges = ((v, w) for w in g[v] & original_s.nodes)
 
-        new_s = s.copy()
+        new_s = original_s.copy()
         for i, ei in enumerate(connecting_edges):
-            # we add the edges e1, e2,... in E(S, v) one at a time, after i-th step, new_s is
-            # the MST of (V_S ∪ v, E_S ∪ {e1,...,ei}
+            # We add the edges e1, e2,... in E(S, v) one at a time, after i-th step,
+            # new_s is the MST of (V_S ∪ v, E_S ∪ {e1,...,ei}
 
             if i == 0:
-                # simply add the first connecting edge without doing anything extra
-                new_s = g.edge_subgraph(list(s.edges) + [ei]).copy()
+                # Simply add the first connecting edge without doing anything extra
+                new_s = g.edge_subgraph(list(new_s.edges) + [ei]).copy()
             else:
-                # now v is a node in S, we need to check if adding ei improve the weight
+                # Now v is a node in S, we need to check if adding ei improve the weight
                 new_s = try_insert_edge(new_s, ei, g.edges[ei]['weight'])
 
         new_s_weight = graph_weight(new_s)
@@ -63,9 +65,7 @@ def steiner_vertices_insertion(g, s, terminals, early_stop=True):
             s_weight = new_s_weight
             s = new_s.copy()
 
-    s = prune_tree(s, terminals)
-
-    return s
+    return prune_tree(s, terminals)
 
 
 def steiner_vertices_elimination(g, s, terminals, early_stop=True):
