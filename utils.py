@@ -1,5 +1,4 @@
 import os
-from functools import wraps
 
 import networkx as nx
 
@@ -65,21 +64,3 @@ def prune_tree(tree, terminals):
 
 def graph_weight(g):
     return sum(edge_data['weight'] for edge_data in g.edges.values())
-
-
-def try_log(logger):
-    def _try_log(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            try:
-                return f(*args, **kwargs)
-            except Exception as e:
-                logger.info((f.__name__, args, kwargs))
-                logger.error(e, exc_info=True)
-                print(e)
-
-                return dict()
-
-        return wrapper
-
-    return _try_log
