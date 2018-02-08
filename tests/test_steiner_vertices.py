@@ -1,22 +1,6 @@
-import os
-import sys
-
 import networkx as nx
 
-my_path = os.path.dirname(os.path.abspath(__file__))
-
-
-def get_path(rel_path):
-    """
-    Get the absolute path from relative path
-    """
-    return os.path.abspath(
-        os.path.join(my_path, rel_path)
-    )
-
-
-# insert the parent directory to sys.path so that we can import modules and functions
-sys.path.insert(0, get_path('..'))
+from .utils import get_path
 
 
 def test_try_insert_edge():
@@ -39,7 +23,3 @@ def test_find_starting_solution():
         leaves = (node for node in s.nodes if s.degree(node) == 1)
 
         assert nx.is_tree(s) and all(leaf in terminals for leaf in leaves)
-
-
-if __name__ == '__main__':
-    test_find_starting_solution()

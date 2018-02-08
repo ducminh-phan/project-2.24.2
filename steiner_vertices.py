@@ -7,12 +7,19 @@ from utils import prune_tree, graph_weight
 def try_insert_edge(s, e, w_e):
     """
     Try to insert edge e = (u, v) with weight w_e into S.
-    We replace the longest edge connecting u and v in S by e if its weight greater than w_e.
+    We replace the longest edge connecting u and v in S
+    by e if its weight greater than w_e.
     """
-    path = nx.dijkstra_path(s, *e)  # the path connecting v and w in S
-    path_edges = pairwise(path)  # the edges on the path
+    # The path connecting v and w in S
+    path = nx.dijkstra_path(s, *e)
+
+    # The edges on the path
+    path_edges = pairwise(path)
+
+    # Find the longest edge in the path connecting v and w in S
     longest_edge = max(path_edges, key=lambda x: s.edges[x]['weight'])
 
+    # Replace the longest edge if it leads to an improvement
     if s.edges[longest_edge]['weight'] > w_e:
         s.remove_edge(*longest_edge)
         s.add_edge(*e, weight=w_e)
@@ -20,7 +27,7 @@ def try_insert_edge(s, e, w_e):
     return s
 
 
-def steiner_vertices_insertion(g, s, terminals):
+def steiner_vertices_insertion(g, s, terminals, early_stop=True):
     """
     Determine if there is a vertex v not in V_S such that MST(G[V_S ∪ v]) is cheaper than S.
     """
@@ -40,10 +47,7 @@ def steiner_vertices_insertion(g, s, terminals):
 
             if i == 0:
                 # simply add the first connecting edge without doing anything extra
-                new_s = g.edge_subgraph(list(s.edges) + [ei])
-
-                # make new_s a Graph instead of a SubGraph so that we can modify it
-                new_s = nx.Graph(new_s)
+                new_s = g.edge_subgraph(list(s.edges) + [ei]).copy()
             else:
                 # now v is a node in S, we need to check if adding ei improve the weight
                 new_s = try_insert_edge(new_s, ei, g.edges[ei]['weight'])
@@ -51,6 +55,11 @@ def steiner_vertices_insertion(g, s, terminals):
         new_s_weight = graph_weight(new_s)
 
         if new_s_weight < s_weight:
+            if early_stop:
+                # Return as soon as we have an improvement
+                # without looking for the best one
+                return prune_tree(new_s, terminals)
+
             s_weight = new_s_weight
             s = new_s.copy()
 
@@ -59,7 +68,7 @@ def steiner_vertices_insertion(g, s, terminals):
     return s
 
 
-def steiner_vertices_elimination(g, s, terminals):
+def steiner_vertices_elimination(g, s, terminals, early_stop=True):
     """
     Determine if there is a vertex v in V_S \ T such that MST(G[V_S - v]) is cheaper than S.
     We evaluate each possible removal by rerunning Kruskal's algorithm on the induced subgraph.
@@ -72,8 +81,7 @@ def steiner_vertices_elimination(g, s, terminals):
     s_weight = graph_weight(s)
 
     for v in available_nodes:
-        temp = g.subgraph(original_s.nodes)
-        temp = nx.Graph(temp)
+        temp = g.subgraph(original_s.nodes).copy()
         temp.remove_node(v)
 
         if not nx.is_connected(temp):
@@ -83,6 +91,11 @@ def steiner_vertices_elimination(g, s, terminals):
         new_s_weight = graph_weight(new_s)
 
         if new_s_weight < s_weight:
+            if early_stop:
+                # Return as soon as we have an improvement
+                # without looking for the best one
+                return prune_tree(new_s, terminals)
+
             s_weight = new_s_weight
             s = new_s.copy()
 
@@ -91,11 +104,8 @@ def steiner_vertices_elimination(g, s, terminals):
     return s
 
 
-def local_search(g, s, terminals):
-    s = steiner_vertices_elimination(g, s, terminals)
-    s = steiner_vertices_insertion(g, s, terminals)
-
-    assert nx.is_tree(s)
-    assert terminals.issubset(s.nodes)
+def local_search(g, s, terminals, early_stop=True):
+    s = steiner_vertices_elimination(g, s, terminals, early_stop=early_stop)
+    s = steiner_vertices_insertion(g, s, terminals, early_stop=early_stop)
 
     return s
