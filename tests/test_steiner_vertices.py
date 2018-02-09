@@ -20,6 +20,8 @@ def test_find_starting_solution():
     for i in range(1, 10, 2):
         g, terminals = parse_graph(i)
         s = find_starting_solution(g, terminals)
-        leaves = (node for node in s.nodes if s.degree(node) == 1)
+        leaves = {node for node in s.nodes if s.degree(node) == 1}
 
-        assert nx.is_tree(s) and all(leaf in terminals for leaf in leaves)
+        assert nx.is_tree(s), 'S is not a tree'
+        assert leaves.issubset(terminals), 'There are non-leaf terminals'
+        assert terminals.issubset(s.nodes), 'S does not contain all the terminals'

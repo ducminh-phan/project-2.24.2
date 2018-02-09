@@ -8,7 +8,7 @@ def try_insert_edge(s, e, w_e):
     """
     Try to insert edge e = (u, v) with weight w_e into S.
     We replace the longest edge connecting u and v in S
-    by e if its weight greater than w_e.
+    by e if its weight is greater than w_e.
     """
     # The path connecting v and w in S
     path = nx.dijkstra_path(s, *e)
@@ -29,7 +29,9 @@ def try_insert_edge(s, e, w_e):
 
 def steiner_vertices_insertion(g, s, terminals, early_stop=True):
     """
-    Determine if there is a vertex v not in V_S such that MST(G[V_S ∪ v]) is cheaper than S.
+    Determine if there is a vertex v not in V_S such that MST(G[V_S ∪ v])
+    is cheaper than S. For each available node, we add the edges connecting
+    v and S one-by-one, and see if adding the edges leads to an improvement.
     """
     available_nodes = set(g.nodes) - set(s.nodes)  # nodes can be inserted to S
     if not available_nodes:
@@ -57,21 +59,22 @@ def steiner_vertices_insertion(g, s, terminals, early_stop=True):
         new_s_weight = graph_weight(new_s)
 
         if new_s_weight < s_weight:
-            if early_stop:
-                # Return as soon as we have an improvement
-                # without looking for the best one
-                return prune_tree(new_s, terminals)
-
             s_weight = new_s_weight
             s = new_s.copy()
+
+            if early_stop:
+                # Break the loop as soon as we have an improvement
+                # without looking for the best one
+                break
 
     return prune_tree(s, terminals)
 
 
 def steiner_vertices_elimination(g, s, terminals, early_stop=True):
     """
-    Determine if there is a vertex v in V_S \ T such that MST(G[V_S - v]) is cheaper than S.
-    We evaluate each possible removal by rerunning Kruskal's algorithm on the induced subgraph.
+    Determine if there is a vertex v in V_S \ T such that MST(G[V_S - v])
+    is cheaper than S. We evaluate each possible removal by rerunning
+    Kruskal's algorithm on the induced subgraph.
     """
     available_nodes = set(s.nodes) - terminals  # nodes can be deleted from s
     if not available_nodes:
@@ -81,6 +84,7 @@ def steiner_vertices_elimination(g, s, terminals, early_stop=True):
     s_weight = graph_weight(s)
 
     for v in available_nodes:
+        # Temporarily remove v from S
         temp = g.subgraph(original_s.nodes).copy()
         temp.remove_node(v)
 
