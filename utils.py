@@ -64,3 +64,54 @@ def prune_tree(tree, terminals):
 
 def graph_weight(g):
     return sum(edge_data['weight'] for edge_data in g.edges.values())
+
+
+def check_solution(s, terminals):
+    leaves = {node for node in s.nodes if s.degree(node) == 1}
+
+    assert nx.is_tree(s), 'S is not a tree'
+    assert leaves.issubset(terminals), 'There are non-leaf terminals'
+    assert terminals.issubset(s.nodes), 'S does not contain all the terminals'
+
+
+def get_contest_results():
+    """
+    Get the current results of the participants
+    """
+    import requests
+    import bs4
+    import numpy as np
+
+    def to_int(s):
+        try:
+            s = s.replace(',', '')
+            return int(float(s))
+        except ValueError:
+            return float('inf')
+
+    url = 'https://www.optil.io/optilion/problem/3025/standing'
+    response = requests.get(url)
+    soup = bs4.BeautifulSoup(response.text, 'html5lib')
+
+    # Get the result table
+    table = soup.find('table')
+    table_body = table.find('tbody')
+    rows = table_body.find_all('tr')
+
+    # Parse the table
+    data = []
+    for row in rows:
+        cells = row.find_all('td')
+        cells = [to_int(cell.text.strip()) for cell in cells]
+        data.append(cells)
+
+    # Convert the table to numpy array
+    data = np.array(data)
+
+    # Remove non-result columns
+    data = data[:, 4:]
+
+    # Save the results
+    np.save('results.npy', data)
+
+    return data

@@ -1,2 +1,6 @@
 networkx>=2.0
 pytest
+requests
+beautifulsoup4
+numpy
+seaborn
