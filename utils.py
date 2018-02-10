@@ -37,12 +37,17 @@ def parse_graph(instance_id):
     return g, terminals
 
 
-def find_starting_solution(g, terminals):
+def find_starting_solution(g, terminals, algo='dnh'):
     """
     Find a starting solution for the local search.
     Return S = (V_S, E_S) where S = MST(G[V_S]),
     and all degree-one vertices are terminals
     """
+    from key_paths import distance_network_heuristics
+
+    if algo == 'dnh':
+        return distance_network_heuristics(g, terminals)
+
     tree = nx.minimum_spanning_tree(g)
     tree = prune_tree(tree, terminals)
 

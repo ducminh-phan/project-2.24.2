@@ -1,21 +1,38 @@
+import argparse
 import json
 import logging
 import multiprocessing as mp
 import os
-import sys
 import time
 from functools import wraps
-from multiprocessing.pool import ThreadPool
 
+import interruptingcow as ic
 import networkx as nx
 
+import key_paths
 import steiner_vertices
-from utils import parse_graph, find_starting_solution, graph_weight
+from utils import parse_graph, graph_weight
 
 logging.basicConfig(filename='logs/error.log', level=logging.INFO)
 logger = logging.getLogger('main')
 
-METHODS = [steiner_vertices]
+METHODS = {'kv': key_paths, 'sv': steiner_vertices}
+
+
+class NullContextManager:
+    """
+    Dummy Context Manager to use as a replacement for interruptingcow.timeout
+    in the case no timeout was specified.
+    """
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __enter__(self, *args, **kwargs):
+        pass
+
+    def __exit__(self, *args, **kwargs):
+        pass
 
 
 def log_error(f):
@@ -29,85 +46,94 @@ def log_error(f):
         try:
             return f(*args, **kwargs)
         except Exception as e:
+            print('{} raised when solving #{} with method {}'.format(
+                e.__class__.__name__, args[0], METHODS[args[1].method].__name__
+            ))
+
             logger.info((f.__name__, args, kwargs))
             logger.error(e, exc_info=True)
-            print('{} raised when solving #{} with method {}'.format(
-                e.__class__.__name__, args[1], METHODS[args[0]].__name__
-            ))
 
             return {}
 
     return wrapper
 
 
-def timeout(t=None):
-    """
-    Add a timeout of t seconds to a function. It calls the worker function
-    in a background thread, and then wait for a result for t seconds.
-    If the timeout expires, it raises an exception, which will abruptly
-    terminate the thread worker is executing in.
-    """
-
-    def _timeout(worker):
-        @wraps(worker)
-        def wrapper(*args, **kwargs):
-            with ThreadPool(processes=1) as pool:
-                res = pool.apply_async(worker, args, kwargs)
-                try:
-                    # Wait t seconds for the worker to complete
-                    out = res.get(timeout=t)
-                    return out
-                except mp.TimeoutError:
-                    print("Abort solving #{} due to timeout".format(args[1]))
-                    sys.exit()
-
-        return wrapper
-
-    return _timeout
-
-
-@timeout()
 @log_error
-def solve(method_id, instance_id, max_runtime=None):
+def solve(instance_id, args):
     start_all = time.time()
-    print("Solving #{} in Process #{}".format(instance_id, os.getpid()))
+    print("Start solving #{} in Process #{}".format(instance_id, os.getpid()))
 
-    method = METHODS[method_id]
+    method = METHODS[args.method]
+
+    if args.verbose:
+        print('Parsing instance #{}...'.format(instance_id))
 
     g, terminals = parse_graph(instance_id)
-    s = find_starting_solution(g, terminals)
+
+    # Parse the precomputed starting solution
+    s = nx.read_gpickle('results/starting_solutions/{}/{}.gpickle'.format(
+        args.start, instance_id
+    ))
+
     s_weight = graph_weight(s)
+
+    if args.verbose:
+        print('G has {} nodes, {} edges, {} terminals.'.format(
+            len(g.nodes), len(g.edges), len(terminals)
+        ))
+        print('The starting solution has {} nodes with the total weight of {}.'.format(
+            len(s.nodes), s_weight
+        ))
 
     epoch = 0
     weights = [s_weight]
     epoch_times = []
     total_time = 0
 
-    stop = False
+    # Setup the timeout
+    context_manager = NullContextManager if args.timeout == 0 else ic.timeout
 
-    while not stop:
-        epoch += 1
-        start = time.time()
+    try:
+        with context_manager(args.timeout, TimeoutError):
+            while True:
+                epoch += 1
+                start = time.time()
 
-        new_s = method.local_search(g, s, terminals)
-        new_s_weight = graph_weight(new_s)
-        epoch_time = round(time.time() - start, 3)
+                if args.verbose:
+                    print("Epoch {}:".format(epoch), end=' ', flush=True)
 
-        if new_s_weight < s_weight:
-            s_weight = new_s_weight
-            s = new_s.copy()
-        else:
-            break
+                new_s = method.local_search(g, s, terminals,
+                                            early_stop=args.early_stop)
+                new_s_weight = graph_weight(new_s)
+                epoch_time = round(time.time() - start, 3)
 
-        weights.append(new_s_weight)
-        epoch_times.append(epoch_time)
-        total_time += epoch_time
+                if new_s_weight < s_weight:
+                    if args.verbose:
+                        print("The solution weight improves from {} to {}.".format(
+                            s_weight, new_s_weight
+                        ))
 
-        if max_runtime is not None and total_time > max_runtime:
-            stop = True
+                    s_weight = new_s_weight
+                    s = new_s.copy()
+                else:
+                    if args.verbose:
+                        print("The solution weight does not improve, "
+                              "returning the solution.")
+                    break
+
+                weights.append(new_s_weight)
+                epoch_times.append(epoch_time)
+                total_time += epoch_time
+    except TimeoutError:
+        print('Stop solving #{} due to timeout.'.format(instance_id))
+
+    if args.verbose:
+        print('The final solution has {} nodes.'.format(
+            len(s.nodes)
+        ))
 
     nx.write_gpickle(s, 'results/{}/{}.gpickle'.format(
-        method.__name__, instance_id
+        get_name(args), instance_id
     ))
 
     end_all = time.time()
@@ -117,29 +143,126 @@ def solve(method_id, instance_id, max_runtime=None):
     return {instance_id: {'weights': weights, 'epoch_times': epoch_times, 'run_time': run_time}}
 
 
+def get_name(args):
+    """
+    Get the name for the result folder and log from parsed args
+    """
+    name = METHODS[args.method].__name__
+
+    name += '_{}'.format(args.start)
+
+    if not args.early_stop:
+        name += '_noearly'
+
+    if args.timeout:
+        name += '_{}'.format(args.timeout)
+
+    return name
+
+
+def check_args(parser, args):
+    if args.id is not None:
+        if args.instances == 'all':
+            parser.error("Cannot use --all and --id at the same time.")
+
+        args.instances = 'multi'
+
+    if args.verbose and (args.id is None or len(args.id) != 1):
+        parser.error("Can turn on verbosity mode if and only if "
+                     "a single instance id is provided with --id.")
+
+    if args.id is not None and not all(1 <= iid <= 199 and iid % 2
+                                       for iid in args.id):
+        parser.error("The instance id provided need to be odd numbers "
+                     "between 1 and 199 (inclusive).")
+
+    return args
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Use local search to solve the '
+                                                 'Steiner tree problem.')
+    parser.add_argument('-s', '--start', choices=('dnh', 'mst'), default='dnh',
+                        help="The choice of algorithm to find the starting solution. "
+                             "Default: '%(default)s'.")
+    parser.add_argument('-m', '--method', choices=('kv', 'sv'), default='kv',
+                        help="The neighborhood type to use in the local search. "
+                             "The options are corresponding to key vertices and "
+                             "steiner vertices. Default: '%(default)s'.")
+    parser.add_argument('-n', '--no-early-stop', dest='early_stop', action='store_false',
+                        help="Do not use early stopping by default in the local search.")
+    parser.add_argument('-a', '--all', dest='instances', action='store_const',
+                        const='all', default='small',
+                        help="Solve all 100 instances instead of 25 small instances "
+                             "by default. Cannot be used together with the option --id.")
+    parser.add_argument('-t', '--timeout', type=int, default=3600,
+                        help="The time limit to solve for an instance, in seconds. "
+                             "Set this to 0 to remove the timeout. Default: %(default)s.")
+    parser.add_argument('-i', '--id', nargs='+', type=int,
+                        help="Solve the instances with the id provided as a list "
+                             "of space-separated integers. Cannot be used together "
+                             "with the option --all.")
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help="Turn on verbosity mode. Can be set if and only if "
+                             "a single instance id is provided with --id.")
+
+    args = parser.parse_args()
+    args = check_args(parser, args)
+
+    return args
+
+
 def main():
-    results = {}
-
-    with open('small_instances.json') as f:
-        small_instances = json.load(f)
-
-    def collect_result(result):
-        results.update(result)
-        with open('results/{}.json'.format(method_name), 'w') as f:
-            json.dump(results, f)
-
     start = time.time()
 
-    for method_id in range(len(METHODS)):
-        pool = mp.Pool()
-        method_name = METHODS[method_id].__name__
+    args = parse_args()
 
-        for instance_id in small_instances:
-            pool.apply_async(solve, args=(method_id, instance_id),
-                             callback=collect_result)
+    # Create the folder to store the results if it does not exist
+    directory = 'results/{}'.format(get_name(args))
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
-        pool.close()
-        pool.join()
+    # Get the current results
+    try:
+        with open('{}.json'.format(directory)) as f:
+            content = f.read()
+
+            if not content:
+                # The file is empty, we set an empty dict for the results
+                results = {}
+            else:
+                results = json.loads(content)
+    except FileNotFoundError:
+        # The results file does not exist, this happens if and only if
+        # the options are used for the first time
+        results = {}
+
+    def collect_result(result):
+        """
+        Collect and update the result of an instance into the overall results
+        """
+        results.update(result)
+        with open('{}.json'.format(directory), 'w') as _f:
+            json.dump(results, _f)
+
+    # Get the instances to solve
+    if args.instances == 'all':
+        instances = range(1, 200, 2)
+    elif args.instances == 'small':
+        with open('small_instances.json') as f:
+            instances = json.load(f)
+    else:
+        instances = args.id
+
+    # Create the pool of processes
+    pool = mp.Pool()
+
+    for instance_id in instances:
+        pool.apply_async(solve, args=(instance_id, args), callback=collect_result)
+
+    # Starting solving
+    pool.close()
+    pool.join()
 
     print('Elapsed time:', time.time() - start)
 
