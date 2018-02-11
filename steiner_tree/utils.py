@@ -5,17 +5,8 @@ import networkx as nx
 my_path = os.path.dirname(os.path.abspath(__file__))
 
 
-def get_path(rel_path):
-    """
-    Get the absolute path from relative path to the file f
-    """
-    return os.path.abspath(
-        os.path.join(my_path, rel_path)
-    )
-
-
 def parse_graph(instance_id):
-    file_path = get_path('public/instance{}.gr'.format(str(instance_id).zfill(3)))
+    file_path = 'public/instance{}.gr'.format(str(instance_id).zfill(3))
 
     with open(file_path) as f:
         f.readline()
@@ -43,7 +34,7 @@ def find_starting_solution(g, terminals, algo='dnh'):
     Return S = (V_S, E_S) where S = MST(G[V_S]),
     and all degree-one vertices are terminals
     """
-    from key_paths import distance_network_heuristics
+    from .key_paths import distance_network_heuristics
 
     if algo == 'dnh':
         return distance_network_heuristics(g, terminals)
@@ -117,6 +108,6 @@ def get_contest_results():
     data = data[:, 4:]
 
     # Save the results
-    np.save('results.npy', data)
+    np.save('standing.npy', data)
 
     return data

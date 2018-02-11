@@ -2,8 +2,8 @@ from .utils import small_instances
 
 
 def test_find_key_paths():
-    from utils import parse_graph
-    from key_paths import find_key_paths, distance_network_heuristics
+    from steiner_tree.utils import parse_graph
+    from steiner_tree.key_paths import find_key_paths, distance_network_heuristics
 
     for i in small_instances:
         g, terminals = parse_graph(i)

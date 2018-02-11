@@ -4,7 +4,7 @@ from itertools import chain
 import networkx as nx
 from networkx.utils import groups, pairwise
 
-from utils import graph_weight, prune_tree
+from .utils import graph_weight, prune_tree
 
 
 class VoronoiDiagram:
@@ -378,7 +378,7 @@ def key_vertex_elimination(g, s, terminals, early_stop=True):
 
 
 def local_search(g, s, terminals, early_stop=True):
-    from steiner_vertices import steiner_vertices_insertion
+    from .steiner_vertices import steiner_vertices_insertion
 
     s = steiner_vertices_insertion(g, s, terminals, early_stop=early_stop)
     s = key_vertex_elimination(g, s, terminals, early_stop=early_stop)

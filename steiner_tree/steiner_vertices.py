@@ -1,7 +1,7 @@
 import networkx as nx
 from networkx.utils import pairwise
 
-from utils import prune_tree, graph_weight
+from .utils import prune_tree, graph_weight
 
 
 def try_insert_edge(s, e, w_e):

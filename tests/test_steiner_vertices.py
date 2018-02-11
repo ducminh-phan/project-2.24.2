@@ -4,7 +4,7 @@ from .utils import get_path
 
 
 def test_try_insert_edge():
-    from steiner_vertices import try_insert_edge
+    from steiner_tree.steiner_vertices import try_insert_edge
 
     inp = nx.read_gpickle(get_path('testcases/insert_edge_inp_1.gpickle'))
     out = nx.read_gpickle(get_path('testcases/insert_edge_out_1.gpickle'))
@@ -15,7 +15,7 @@ def test_try_insert_edge():
 
 
 def test_find_starting_solution():
-    from utils import parse_graph, find_starting_solution
+    from steiner_tree.utils import parse_graph, find_starting_solution
 
     for i in range(1, 10, 2):
         g, terminals = parse_graph(i)

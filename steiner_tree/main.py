@@ -10,9 +10,8 @@ from functools import wraps
 import interruptingcow as ic
 import networkx as nx
 
-import key_paths
-import steiner_vertices
-from utils import parse_graph, graph_weight
+from . import steiner_vertices, key_paths
+from .utils import parse_graph, graph_weight
 
 METHODS = {'kv': key_paths, 'sv': steiner_vertices}
 
@@ -158,14 +157,15 @@ def solve(instance_id, args):
     run_time = end_all - start_all
     print('Solved #{} after {} seconds'.format(instance_id, round(run_time, 3)))
 
-    return {instance_id: {'weights': weights, 'epoch_times': epoch_times, 'run_time': run_time}}
+    return {str(instance_id): {'weights': weights, 'epoch_times': epoch_times, 'run_time': run_time}}
 
 
 def get_name(args):
     """
     Get the name for the result folder and log from parsed args
     """
-    name = METHODS[args.method].__name__
+    # Get the actual file name from the module name __name__
+    name = METHODS[args.method].__name__.split('.')[-1]
 
     name += '_{}'.format(args.start)
 
@@ -270,7 +270,7 @@ def main():
     if args.instances == 'all':
         instances = range(1, 200, 2)
     elif args.instances == 'small':
-        with open('small_instances.json') as f:
+        with open('steiner_tree/small_instances.json') as f:
             instances = json.load(f)
     else:
         instances = args.id

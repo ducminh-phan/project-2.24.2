@@ -8,14 +8,14 @@ The implementation follows the ideas from the paper Fast local search for the St
 
 1. You will need Python 3.5
 2. Clone this repository
-3. Install the packages using the command `pip install -r requirements.txt`
+3. Install the packages using the command `pip3 install -r requirements.txt`
 
 ### Platform
 The timeout function uses `signal.SIGALRM`, which is not available on Windows. However, on Windows, we can use the Windows Subsystem for Linux, which is included with Windows 10 version 1607 and later.
 
 ## Running
 
-The script can be run via CLI: `python main.py [OPTIONS]`
+The solver can be run via CLI: `python3 -m steiner_tree [OPTIONS]`
 
 ### Options
 
