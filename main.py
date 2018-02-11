@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import logging.config
 import multiprocessing as mp
 import os
 import time
@@ -13,10 +14,49 @@ import key_paths
 import steiner_vertices
 from utils import parse_graph, graph_weight
 
-logging.basicConfig(filename='logs/error.log', level=logging.INFO)
-logger = logging.getLogger('main')
-
 METHODS = {'kv': key_paths, 'sv': steiner_vertices}
+
+
+def setup_logging(
+        default_path='./logs/config.json',
+        default_level=logging.INFO
+):
+    """Setup logging configuration"""
+    if os.path.exists(default_path):
+        with open(default_path) as f:
+            config = json.load(f)
+        logging.config.dictConfig(config)
+    else:
+        logging.basicConfig(level=default_level)
+
+
+# Setup logging
+setup_logging()
+console_logger = logging.getLogger('console')
+file_logger = logging.getLogger('file')
+
+
+def log_error(f):
+    """
+    Try to execute the solver. If any exception raised, log the info
+    and return an empty result.
+    """
+
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except Exception as e:
+            file_logger.info('\n{}, {}, {}'.format(f.__name__, args, kwargs))
+            file_logger.error(e, exc_info=True)
+
+            console_logger.error('{} raised when solving #{} with method {}'.format(
+                e.__class__.__name__, args[0], METHODS[args[1].method].__name__
+            ))
+
+            return {}
+
+    return wrapper
 
 
 class NullContextManager:
@@ -33,29 +73,6 @@ class NullContextManager:
 
     def __exit__(self, *args, **kwargs):
         pass
-
-
-def log_error(f):
-    """
-    Try to execute the solver. If any exception raised, log the info
-    and return an empty result.
-    """
-
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        try:
-            return f(*args, **kwargs)
-        except Exception as e:
-            print('{} raised when solving #{} with method {}'.format(
-                e.__class__.__name__, args[0], METHODS[args[1].method].__name__
-            ))
-
-            logger.info((f.__name__, args, kwargs))
-            logger.error(e, exc_info=True)
-
-            return {}
-
-    return wrapper
 
 
 @log_error
