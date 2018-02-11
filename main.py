@@ -149,9 +149,10 @@ def solve(instance_id, args):
             len(s.nodes)
         ))
 
-    nx.write_gpickle(s, 'results/{}/{}.gpickle'.format(
-        get_name(args), instance_id
-    ))
+    if args.save:
+        nx.write_gpickle(s, 'results/{}/{}.gpickle'.format(
+            get_name(args), instance_id
+        ))
 
     end_all = time.time()
     run_time = end_all - start_all
@@ -219,6 +220,9 @@ def parse_args():
                         help="Solve the instances with the id provided as a list "
                              "of space-separated integers. Cannot be used together "
                              "with the option --all.")
+    parser.add_argument('--save', action='store_true',
+                        help="Save the obtained solutions into a folder corresponding "
+                             "to the options provided.")
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="Turn on verbosity mode. Can be set if and only if "
                              "a single instance id is provided with --id.")
@@ -236,7 +240,7 @@ def main():
 
     # Create the folder to store the results if it does not exist
     directory = 'results/{}'.format(get_name(args))
-    if not os.path.exists(directory):
+    if args.save and not os.path.exists(directory):
         os.makedirs(directory)
 
     # Get the current results
