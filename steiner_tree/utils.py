@@ -19,8 +19,15 @@ def parse_graph(instance_id):
             u, v, w = map(int, f.readline().split()[1:])
             g.add_edge(u, v, weight=w)
 
-        for _ in range(3):
-            f.readline()
+        # END .. SECTION Terminals lines
+        # instance199.gr does not follow the format: there is no
+        # blank line between END and SECTION Terminals
+        if instance_id == 199:
+            for _ in range(2):
+                f.readline()
+        else:
+            for _ in range(3):
+                f.readline()
 
         n_terminals = int(f.readline().split()[1])
         terminals = set(int(f.readline().split()[1]) for _ in range(n_terminals))
