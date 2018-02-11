@@ -59,7 +59,7 @@ def compute_starting_solutions():
 
         for i in range(1, 200, 2):
             g, terminals = parse_graph(i)
-            s = find_starting_solution(g, terminals)
+            s = find_starting_solution(g, terminals, algo=algo)
 
             nx.write_gpickle(s, '{}/{}.gpickle'.format(directory, i))
 

@@ -114,7 +114,4 @@ def get_contest_results():
     # Remove non-result columns
     data = data[:, 4:]
 
-    # Save the results
-    np.save('standing.npy', data)
-
     return data
